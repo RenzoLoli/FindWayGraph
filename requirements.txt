@@ -1,0 +1,5 @@
+graphviz==0.20.1
+numpy==1.24.2
+pandas==1.5.3
+tk==0.1.0
+tkintermapview==1.29
