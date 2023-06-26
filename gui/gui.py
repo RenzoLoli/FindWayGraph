@@ -1,3 +1,4 @@
+import time
 import tkinter as tk
 from tkinter import filedialog
 from typing import List, Tuple
@@ -47,7 +48,7 @@ class Window:
         self.s1.section_config.new_button.config(command=self.new_route)
         self.s1.section_config.save_button.config(command=self.save_route)
         self.s1.section_config.clear_all_button.config(command=self.delete_all_routes)
-        # self.s1.section_config.search_button.config(command=self.search_routes)
+        self.s1.section_config.duplicate_button.config(command=self.duplicate_route)
         def section_routes_ButtonRelease_1(_):  
             self.s1.section_routes.select_row()
             selected = self.s1.section_routes.get_selected_row()
@@ -63,12 +64,14 @@ class Window:
             src = self.graph.get_node(route.src_osmid)
             dst = self.graph.get_node(route.dst_osmid)
 
-            self.s1.section_config.update_form(src.to_coords(), dst.to_coords(), route.algorithm)
+            self.s1.section_config.update_form(src.to_coords()[::-1], dst.to_coords()[::-1], route.algorithm)
             self.s2.map_viewer.set_route(src.to_coords(), dst.to_coords(), route.path)
 
         self.s1.section_routes.bind('<ButtonRelease-1>', section_routes_ButtonRelease_1)
         self.s1.section_config.alg_entry.sibling.config(values=Graph.get_algorithms())
         self.s1.section_config.alg_entry.sibling.current(0)
+
+        self.s1.test_algorithm_button.config(command=self.test_algorithm)
 
         self.s1.grid(row=0, column=0, sticky="nsew")
 
@@ -90,8 +93,10 @@ class Window:
             return None
         self.buffer_route.src_osmid = nearest.osmid
 
-        self.s1.section_config.set_source(nearest.to_coords())
-        self.s2.map_viewer.set_source(nearest.to_coords())
+        nearest_coord = nearest.to_coords()
+
+        self.s1.section_config.set_source(nearest_coord[::-1])
+        self.s2.map_viewer.set_source(nearest_coord)
         self.s2.map_viewer.clear_path()
 
     def set_destination(self, coords: Tuple[str, str]) -> None:
@@ -102,9 +107,11 @@ class Window:
             return None
         
         self.buffer_route.dst_osmid = nearest.osmid
+
+        nearest_coord = nearest.to_coords()
         
-        self.s1.section_config.set_destination(nearest.to_coords())
-        self.s2.map_viewer.set_destination(nearest.to_coords())
+        self.s1.section_config.set_destination(nearest_coord[::-1])
+        self.s2.map_viewer.set_destination(nearest_coord)
         self.s2.map_viewer.clear_path()
 
     def combobox_changed(self, _):
@@ -130,6 +137,12 @@ class Window:
         n_route.path = self.search_path(n_route.src_osmid, n_route.dst_osmid, n_route.algorithm)
 
         self.s2.map_viewer.set_new_path(n_route.path)
+        
+        src = self.graph.get_node(n_route.src_osmid)
+        dst = self.graph.get_node(n_route.dst_osmid)
+
+        self.s2.map_viewer.set_source(src.to_coords())
+        self.s2.map_viewer.set_destination(dst.to_coords())
 
         norm_routes = self.normalize_routes()
         self.s1.section_routes.update_routes(norm_routes, True)
@@ -154,6 +167,19 @@ class Window:
         norm_routes = self.normalize_routes()
         self.s1.section_routes.update_routes(norm_routes)
 
+    def duplicate_route(self):
+        if self.routes.empty():
+            Logger.error("No available routes")
+            return None
+        
+        selected_row = self.s1.section_routes.get_selected_row()
+        route = self.routes.get(selected_row)
+
+        self.buffer_route.copy(route=route)
+        self.buffer_route.path = route.path.copy()
+
+        self.new_route()
+
     def delete_all_routes(self) -> None:
         self.routes.clear()
         self.s2.map_viewer.clear_markers()
@@ -163,22 +189,55 @@ class Window:
         self.s1.section_routes.update_routes(norm_routes)
 
     def search_path(self, src_osmid: str, dst_osmid: str, algorithm: str) -> List:
-        path = []
-        if algorithm == "A*":
-            normalized_path = self.graph.path_finding(src_osmid, dst_osmid)
-            edges = self.graph.osmids_to_edges(normalized_path)
-            path = list(map(lambda edge: edge.to_path(), edges))
-        else:
-            raise Exception(f"Unknown algorithm: {algorithm}")
+        searched_path = []
+
+        if algorithm not in Graph.get_algorithms():
+            Logger.error("Invalid algorithm")
+            return searched_path
+
+        finder = self.graph.choose_algorithm(algorithm)
+
+        start = time.time()
+        searched_path = finder(src_osmid, dst_osmid)
+        end = time.time()
+
+        Logger.info(f"Algorithm: {algorithm}")
+        Logger.info(f"Took {end - start} seconds")
+        Logger.info(f"Path length: {len(searched_path)}")
         
+        edges = self.graph.osmids_to_edges(searched_path)
+        path = list(map(lambda edge: edge.to_path(), edges))
         return path
+    
+    def test_algorithm(self) -> None:       
+        if self.routes.empty():
+            Logger.error("No available routes")
+            return None
+        
+        selected_row = self.s1.section_routes.get_selected_row()
+        route = self.routes.get(selected_row)
+
+        finder = self.graph.choose_algorithm(route.algorithm)
+
+        max_iterations = 10
+        accum = 0
+        for i in range(max_iterations):
+            start = time.time()
+            finder(route.src_osmid, route.dst_osmid)
+            end = time.time()
+            accum += end - start
+        
+        Logger.info(f"'{route.algorithm}' -> {accum / max_iterations:4f}'s on {max_iterations} iterations")
+
 
     def ask_filenames(self) -> Tuple[str]:
         filepaths = filedialog.askopenfilenames(initialdir=path.abspath("."))
         return filepaths # type: ignore
 
     def load_graph(self) -> None:
-        paths = self.ask_filenames()
+        #paths = self.ask_filenames()
+
+        paths = ["C:/Users/zoren/Desktop/FindWayGraph-main-v2/resources/data.xlsx"]
         if len(paths) == 0: 
             Logger.error("nombre de archivo erroneo")
             return None
@@ -203,7 +262,6 @@ class Window:
         half = int(len(nodes) / 2)
         half_node = nodes[half].to_coords()
         self.s2.map_viewer.set_position(half_node[1], half_node[0])
-        self.s2.map_viewer.set_zoom(18)
 
         Logger.info("Grafo cargado!")
 

@@ -44,27 +44,12 @@ class SectionConfig(tk.Frame):
         self.save_button = tk.Button(section_buttons, text="Save")
         self.save_button.grid(row=0, column=1, sticky="nsew")
 
-        self.search_button = tk.Button(section_buttons, text="Search")
-        self.search_button.grid(row=0, column=2, sticky="nsew")
+        self.duplicate_button = tk.Button(section_buttons, text="Duplicate")
+        self.duplicate_button.grid(row=0, column=2, sticky="nsew")
 
         self.clear_all_button = tk.Button(section_buttons, text="Clear All")
         self.clear_all_button.grid(row=0, column=3, sticky="nsew")
 
-    # def valiate_form(self, algorithms: List[str]) -> bool:
-    #     src = self.src_entry.sibling.get()
-    #     dst = self.dst_entry.sibling.get()
-    #     alg = self.alg_entry.sibling.get()
-        
-    #     if alg not in algorithms:
-    #         Logger.error("Algorithm is not valid")
-    #         return False
-
-    #     if src == "" or dst == "": 
-    #         Logger.error("Source or destination is empty")
-    #         return False
-
-    #     return True
-    
     def update_form(self, src: Tuple[float, float], dst: Tuple[float, float], alg: str) -> None:
         self.src_entry.sibling.delete(0, tk.END)
         self.src_entry.sibling.insert(0, src)
@@ -75,18 +60,8 @@ class SectionConfig(tk.Frame):
 
     def set_source(self, src: Tuple[float, float]) -> None:
         self.src_entry.sibling.delete(0, tk.END)
-        self.src_entry.sibling.insert(0, src)
+        self.src_entry.sibling.insert(0, str(src))
     
     def set_destination(self, dst: Tuple[float, float]) -> None:
         self.dst_entry.sibling.delete(0, tk.END)
-        self.dst_entry.sibling.insert(0, dst)
-
-    # def as_route(self) -> Route:
-    #     src = self.src_entry.sibling.get().split(" ")
-    #     dst = self.dst_entry.sibling.get().split(" ")
-    #     alg = self.alg_entry.sibling.get()
-
-    #     src = (float(src[0]), float(src[1]))
-    #     dst = (float(dst[0]), float(dst[1]))
-
-    #     return Route(src, dst, alg)
+        self.dst_entry.sibling.insert(0, str(dst))

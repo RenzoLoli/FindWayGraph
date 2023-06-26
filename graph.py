@@ -3,7 +3,7 @@ from nodes import  Node
 from edges import  Edge
 
 from viewer import GraphViewerStrattegy
-from typing import List, Tuple, Dict
+from typing import Callable, List, Tuple, Dict
 
 import math
 import heapq
@@ -17,7 +17,7 @@ class Graph:
 
     @staticmethod
     def get_algorithms()-> List[str]:
-        return ["A*", "Dijkstra", "Bellman-Ford", "Floyd-Warshall"]
+        return ["A* v1", "A* v2", "A* v3", "Dijkstra v1", "Dijkstra v2"]
 
     def clear(self):
         self.graph.clear()
@@ -108,7 +108,7 @@ class Graph:
             routes.append(self.edges[f'{osmid},{osmids[indx+1]}'])
         return routes
 
-    def path_finding(self, start: str, goal: str) -> List[str]:
+    def path_finding_v1(self, start: str, goal: str) -> List[str]:
         # MEJORAAAAAAAAAAAAAR
         open_set = []
         heapq.heapify(open_set)
@@ -133,22 +133,190 @@ class Graph:
             
             for neighbor, _ in self.graph[current]:
                 edge = self.edges[f'{current},{neighbor}']
-                # costo acumulado
                 distance = self.distance_into(current, neighbor)
-                current_g_score = g_score[current] + distance
+                current_g_score = g_score[current] + distance 
+                current_g_score -= int(edge.highway == "secondary") * distance / 10
                 
                 if neighbor not in g_score or current_g_score < g_score[neighbor]:
                     # Encontramos un camino mejor hacia el vecino
                     came_from[neighbor] = current
                     g_score[neighbor] = current_g_score
                     f_score[neighbor] = current_g_score + self.distance_into(neighbor, goal)
-                    f_score[neighbor] -= int(edge.highway == "secondary") * distance / 3
                     heapq.heappush(open_set, (f_score[neighbor], neighbor))
         
         # No se pudo encontrar un camino
         Logger.error("No existe camino para dicho lugar")
         return []
+    
+    def path_finding_v2(self, start: str, goal: str) -> List[str]:
+        open_set = []
+        closed_set = {}
+        heapq.heapify(open_set)
+        heapq.heappush(open_set, (0, start))
+        came_from = {}
+        g_score = {start: 0.0}
+        f_score = {start: self.distance_into(start, goal)}
 
+        while open_set:
+            _, current = heapq.heappop(open_set)
+            closed_set[current] = True
+
+            if current == goal:
+                # refactorizar el camino
+                path = []
+                while current in came_from:
+                    path.append(current)
+                    current = came_from[current]
+                path.append(start)
+                path.reverse()
+                return path
+        
+            for neighbor, _ in self.graph[current]:
+                #ayuda en eficiencia
+                if neighbor in closed_set:
+                    continue
+
+                edge = self.edges[f'{current},{neighbor}']
+                distance = self.distance_into(current, neighbor)
+                curr_g_score = g_score[current] + distance
+                curr_g_score -= int(edge.highway == "secondary") * distance / 10
+
+                if neighbor not in g_score or curr_g_score < g_score[neighbor]:
+                    came_from[neighbor] = current
+
+                    g_score[neighbor] = curr_g_score
+                    h_score = self.distance_into(neighbor, goal)
+                    f_score[neighbor] = g_score[neighbor] + h_score
+                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
+
+        Logger.error("No existe camino para dicho lugar")
+        return []
+
+    def path_finding_v3(self, start: str, goal: str) -> List[str]:
+        open_set = []
+        heapq.heapify(open_set)
+        heapq.heappush(open_set, (0, start))
+        cameFrom = {}
+        g_score = {key: math.inf for key in self.nodes.keys()}
+        g_score[start] = 0
+        f_score = {key: math.inf for key in self.nodes.keys()}
+        f_score[start] = self.distance_into(start, goal)
+
+        while open_set:
+            current = heapq.heappop(open_set)[1]
+            if current == goal:
+                # refactorizar el camino
+                path = []
+                while current in cameFrom:
+                    path.append(current)
+                    current = cameFrom[current]
+                path.append(start)
+                path.reverse()
+                return path
+            
+            for neighbor, _ in self.graph[current]:
+
+                edge = self.edges[f'{current},{neighbor}']
+                distance = self.distance_into(current, neighbor)
+                curr_g_score = g_score[current] + distance
+                curr_g_score -= int(edge.highway == "secondary") * distance / 10
+                
+                if curr_g_score < g_score[neighbor]:
+                    cameFrom[neighbor] = current
+                    g_score[neighbor] = curr_g_score
+                    f_score[neighbor] = g_score[neighbor] + self.distance_into(neighbor, goal)
+                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
+
+        Logger.error("No existe camino para dicho lugar")
+        return []
+
+    def dijkstra_v1(self, start: str, goal: str) -> List[str]:
+        queue = []
+        heapq.heapify(queue)
+        heapq.heappush(queue, (0, start))
+        came_from = {}
+        g_score = {node: math.inf for node in self.nodes.keys()}
+        visited = {node: False for node in self.nodes.keys()}
+
+        while queue:
+            curr_g_score, current = heapq.heappop(queue)
+            
+            if current == goal:
+                # refactorizar el camino
+                path = []
+                while current in came_from:
+                    path.append(current)
+                    current = came_from[current]
+                path.append(start)
+                path.reverse()
+                return path
+            
+            if not visited[current]:
+                visited[current] = True
+                for neighbor, _ in self.graph[current]:
+                    if not visited[neighbor]:
+                        edge = self.get_edge(current, neighbor)
+                        distance = self.distance_into(current, neighbor)
+                        f_score = curr_g_score + distance
+                        f_score -= int(edge.highway == "secondary") * distance / 10
+                        if g_score[neighbor] > f_score:
+                            came_from[neighbor] = current
+                            g_score[neighbor] = f_score
+                            heapq.heappush(queue, (f_score, neighbor))
+                
+        # No se pudo encontrar un camino
+        Logger.error("No existe camino para dicho lugar")
+        return []
+    
+    def dijkstra_v2(self, start: str, goal: str) -> List[str]:
+        open_set = []
+        heapq.heapify(open_set)
+        heapq.heappush(open_set, (0, start))
+        came_from = {}
+        g_score = {key: math.inf for key in self.nodes.keys()}
+        visited = {key: False for key in self.nodes.keys()}
+
+        while open_set:
+            curr_score, current = heapq.heappop(open_set)
+            
+            if current == goal:
+                path = []
+                while current in came_from:
+                    path.append(current)
+                    current = came_from[current]
+                path.append(start)
+                path.reverse()
+                return path
+            
+            visited[current] = True
+            for neighbor, _ in self.graph[current]:
+                if not visited[neighbor]:
+                    edge = self.get_edge(current, neighbor)
+                    distance = self.distance_into(current, neighbor)
+                    curr_g_score = curr_score + distance
+                    curr_g_score -= int(edge.highway == "secondary") * distance / 10
+                    if g_score[neighbor] > curr_g_score:
+                        g_score[neighbor] = curr_g_score
+                        came_from[neighbor] = current
+                        heapq.heappush(open_set, (curr_g_score, neighbor))
+                
+        Logger.error("No existe camino para dicho lugar")
+        return []
+    
+    def choose_algorithm(self, algorithm: str) -> Callable[[str, str], List[str]]:
+        if algorithm == "Dijkstra v1":
+            return self.dijkstra_v1
+        elif algorithm == "Dijkstra v2":
+            return self.dijkstra_v2
+        elif algorithm == "A* v1":
+            return self.path_finding_v1
+        elif algorithm == "A* v2":
+            return self.path_finding_v2
+        elif algorithm == "A* v3":
+            return self.path_finding_v3
+        else:
+            return self.dijkstra_v1
+        
     def plot_bytes(self) -> bytes:
         self.build_viewer()
         return self.viewer.pipe()

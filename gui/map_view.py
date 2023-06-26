@@ -45,9 +45,15 @@ class MapViewer(TkinterMapView):
         if self.last_source_marker:
             self.last_source_marker.delete()
 
-        self.set_position(coord[1], coord[0])
-        self.set_zoom(18)
-        self.last_source_marker = self.set_marker(coord[1], coord[0])
+        # self.set_position(coord[1], coord[0])
+        self.last_source_marker = self.set_marker(coord[1], coord[0], text=str(coord))
+
+    def set_destination(self, coord: Tuple[float, float]):
+        if self.last_destination_marker:
+            self.last_destination_marker.delete()
+
+        # self.set_position(coord[1], coord[0])
+        self.last_destination_marker = self.set_marker(coord[1], coord[0], text=str(coord))
 
     def clear_markers(self):
         if self.last_source_marker:
@@ -57,14 +63,6 @@ class MapViewer(TkinterMapView):
 
     def clear_path(self):
         self.delete_all_path()
-
-    def set_destination(self, coord: Tuple[float, float]):
-        if self.last_destination_marker:
-            self.last_destination_marker.delete()
-
-        self.set_position(coord[1], coord[0])
-        self.set_zoom(18)
-        self.last_destination_marker = self.set_marker(coord[1], coord[0])
 
     def set_new_path(self, connections: List[List[Tuple[float, float]]]):
         self.clear_path()
