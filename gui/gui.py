@@ -237,7 +237,6 @@ class Window:
     def load_graph(self) -> None:
         paths = self.ask_filenames()
 
-        paths = [""]
         if len(paths) == 0: 
             Logger.error("nombre de archivo erroneo")
             return None
